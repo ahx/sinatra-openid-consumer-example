@@ -1,4 +1,4 @@
-# An example of how to do OpenID authentification using Sinatra
+# An example for an OpenID consumer using Sinatra
 
 require 'rubygems'
 require 'sinatra'
@@ -10,6 +10,10 @@ helpers do
   def openid_consumer
     @openid_consumer ||= OpenID::Consumer.new(session,
         OpenID::Store::Filesystem.new("#{File.dirname(__FILE__)}/tmp/openid"))  
+  end
+  
+  def openid_handler_path
+    "/login/openid/handler"
   end
 
   def root_url
@@ -25,26 +29,26 @@ end
 post '/login/openid' do
   openid = params[:openid_identifier]
   begin
-    response = openid_consumer.begin(openid)
+    oidreq = openid_consumer.begin(openid)
   rescue OpenID::DiscoveryFailure => why
     "Sorry, we couldn't find your identifier #{openid}."
   else
     # You could request additional information here - see specs:
     # http://openid.net/specs/openid-simple-registration-extension-1_0.html
-    # response.add_extension_arg('sreg','required','nickname')
-    # response.add_extension_arg('sreg','optional','fullname, email')
+    # oidreq.add_extension_arg('sreg','required','nickname')
+    # oidreq.add_extension_arg('sreg','optional','fullname, email')
 
     # Send request - first parameter: Trusted Site,
     # second parameter: redirect target
-    redirect response.redirect_url(root_url, root_url + "/login/openid/complete")
+    redirect oidreq.redirect_url(root_url, root_url + "/login/openid/complete")
   end
 end
 
 get '/login/openid/complete' do
-  response = openid_consumer.complete(params, request.url)
-  openid = response.display_identifier
+  oidresp = openid_consumer.complete(params, request.url)
+  openid = oidresp.display_identifier
 
-  case response.status
+  case oidresp.status
     when OpenID::Consumer::FAILURE
       "Sorry, we could not authenticate you with this identifier #{openid}."
 
