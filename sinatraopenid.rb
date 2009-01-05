@@ -1,4 +1,4 @@
-# An example of how to do OpenID authenfication using Sinatra
+# An example of how to do OpenID authentification using Sinatra
 
 require 'rubygems'
 require 'sinatra'
