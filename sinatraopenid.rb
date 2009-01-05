@@ -11,10 +11,6 @@ helpers do
     @openid_consumer ||= OpenID::Consumer.new(session,
         OpenID::Store::Filesystem.new("#{File.dirname(__FILE__)}/tmp/openid"))  
   end
-  
-  def openid_handler_path
-    "/login/openid/handler"
-  end
 
   def root_url
     request.url.match(/(^.*\/{2}[^\/]*)/)[1]
