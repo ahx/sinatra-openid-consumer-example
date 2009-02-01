@@ -1,12 +1,15 @@
 # An example for an OpenID consumer using Sinatra
 
 require 'rubygems'
-require 'sinatra'
+require 'sinatra/base'
 gem 'ruby-openid', '>=2.1.2'
 require 'openid'
 require 'openid/store/filesystem'
 
-helpers do
+class OpenIDAuth < Sinatra::Base
+  
+  use_in_file_templates!
+  
   def openid_consumer
     @openid_consumer ||= OpenID::Consumer.new(session,
         OpenID::Store::Filesystem.new("#{File.dirname(__FILE__)}/tmp/openid"))  
@@ -15,76 +18,86 @@ helpers do
   def root_url
     request.url.match(/(^.*\/{2}[^\/]*)/)[1]
   end
-end
 
+  # In a real app, you might want to do something like this 
+  #
+  # enable :sessions 
+  #
+  # Returns true if somebody is logged in  
+  # def logged_in?
+  #   !session[:user].nil?
+  # end
+  #
+  # Visit /logout to log out
+  # get '/logout' do
+  #   session[:user] = nil
+  #   # redirect '/login'
+  # end
 
-get '/login' do
-  erb :login
-end
+  # Send everything else to the super app
+  not_found do
+    if @app
+      @app.call(env)
+    end
+  end
+    
+  get '/login' do    
+    erb :login
+  end
 
-post '/login/openid' do
-  openid = params[:openid_identifier]
-  begin
-    oidreq = openid_consumer.begin(openid)
-  rescue OpenID::DiscoveryFailure => why
-    "Sorry, we couldn't find your identifier #{openid}: #{why}"
-  else
-    # You could request additional information here - see specs:
-    # http://openid.net/specs/openid-simple-registration-extension-1_0.html
-    # oidreq.add_extension_arg('sreg','required','nickname')
-    # oidreq.add_extension_arg('sreg','optional','fullname, email')
+  post '/login/openid' do
+    openid = params[:openid_identifier]
+    begin
+      oidreq = openid_consumer.begin(openid)
+    rescue OpenID::DiscoveryFailure => why
+      "Sorry, we couldn't find your identifier '#{openid}'"
+    else
+      # You could request additional information here - see specs:
+      # http://openid.net/specs/openid-simple-registration-extension-1_0.html
+      # oidreq.add_extension_arg('sreg','required','nickname')
+      # oidreq.add_extension_arg('sreg','optional','fullname, email')
+      
+      # Send request - first parameter: Trusted Site,
+      # second parameter: redirect target
+      redirect oidreq.redirect_url(root_url, root_url + "/login/openid/complete")
+    end
+  end
 
-    # Send request - first parameter: Trusted Site,
-    # second parameter: redirect target
-    redirect oidreq.redirect_url(root_url, root_url + "/login/openid/complete")
+  get '/login/openid/complete' do
+    oidresp = openid_consumer.complete(params, request.url)
+
+    case oidresp.status
+      when OpenID::Consumer::FAILURE
+        "Sorry, we could not authenticate you with the identifier '{openid}'."
+
+      when OpenID::Consumer::SETUP_NEEDED
+        "Immediate request failed - Setup Needed"
+
+      when OpenID::Consumer::CANCEL
+        "Login cancelled."
+
+      when OpenID::Consumer::SUCCESS
+        # Access additional informations:
+        # puts params['openid.sreg.nickname']
+        # puts params['openid.sreg.fullname']   
+        
+        # Startup something
+        "Login successfull."  
+        # Maybe something like
+        # session[:user] = User.find_by_openid(oidresp.display_identifier)
+    end
   end
 end
-
-get '/login/openid/complete' do
-  oidresp = openid_consumer.complete(params, request.url)
-  openid = oidresp.display_identifier
-
-  case oidresp.status
-    when OpenID::Consumer::FAILURE
-      "Sorry, we could not authenticate you with this identifier #{openid}."
-
-    when OpenID::Consumer::SETUP_NEEDED
-      "Immediate request failed - Setup Needed"
-
-    when OpenID::Consumer::CANCEL
-      "Login cancelled."
-
-    when OpenID::Consumer::SUCCESS
-      # Access additional informations:
-      # puts params['openid.sreg.nickname']
-      # puts params['openid.sreg.fullname']
-
-      "Login successfull."  # startup something
-  end
-end
-
-
-use_in_file_templates!
 
 __END__
 
-@@ layout
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-       "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
-<head>
-  <meta http-equiv="content-type" content="text/html;charset=UTF-8" />
-  <title>got openid?</title>
-</head>
-<body>
-  <%= yield %>
-</body>
-</html>
-
-
 @@ login
-<form method="post" accept-charset="UTF-8" action='/login/openid'>
-  Identifier:
-  <input type="text" class="openid" name="openid_identifier" />
-  <input type="submit" value="Verify" />
+
+<form class="openid_login" method="post" accept-charset="UTF-8" action='/login/openid'>
+  <label for="openid_identifier">Your OpenID:</label>
+  <input type="text" name="openid_identifier" 
+    style="background: url(http://openid.net/images/login-bg.gif) no-repeat #FFF 5px; padding-left: 25px;" />    
+      <small><a href="http://openid.net/get/" title="What is an OpenID? Where can i get one?'" class="help">What?</a></small>
+      <input type="submit" value="Login" />
 </form>
+
