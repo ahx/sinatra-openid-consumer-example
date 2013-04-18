@@ -8,7 +8,7 @@ require 'openid/store/filesystem'
 
 class OpenIDAuth < Sinatra::Base
   
-  use_in_file_templates!
+  enable :inline_templates
   
   def openid_consumer
     @openid_consumer ||= OpenID::Consumer.new(session,
@@ -50,7 +50,7 @@ class OpenIDAuth < Sinatra::Base
     begin
       oidreq = openid_consumer.begin(openid)
     rescue OpenID::DiscoveryFailure => why
-      "Sorry, we couldn't find your identifier '#{openid}'"
+      "Sorry, we couldn't find your identifier '#{openid}' because #{why}"
     else
       # You could request additional information here - see specs:
       # http://openid.net/specs/openid-simple-registration-extension-1_0.html
