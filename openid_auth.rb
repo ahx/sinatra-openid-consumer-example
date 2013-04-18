@@ -8,7 +8,7 @@ require 'openid/store/filesystem'
 
 class OpenIDAuth < Sinatra::Base
   
-  use_in_file_templates!
+  enable :inline_templates
   
   def openid_consumer
     @openid_consumer ||= OpenID::Consumer.new(session,
